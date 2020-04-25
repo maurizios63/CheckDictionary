@@ -13,15 +13,25 @@ class TplDictC (dict):
         set type for each entry
         :param init_dict: Initialization dictionary to define types
         """
-        self.logger = logging.getLogger('TplDictC')
+        self.is_default = False
+        self.logger_name = kwargs.get('__name__','Main ')
+        self.logger = logging.getLogger(self.logger_name)
         self.logger.setLevel(TplDictC.__logging_level)
         super(TplDictC, self).__init__(*args, **kwargs)
-        self.hidden_key_l = [TplDictC.__default_key__]
+        self.hidden_key_l = [TplDictC.__default_key__, '__name__']
         # Create a sub-dictionary containing type-keys
         self.type_dict = {key: type(value) for (key, value) in super(TplDictC, self).items()}
         # Initialize the set of keys that have default values
         self.default_key_set = self.get_keys
         self.has_default_type = self.get(TplDictC.__default_key__) is not None
+        # Massage the dictionary and change all entries of type dict with type TplDict
+        dict_key_l = [key for key in super(TplDictC, self).keys()
+                     if isinstance(self[key], dict)]
+        for key in dict_key_l:
+            sub_dict = TplDictC(self[key], __name__="%s -> sub-key %s" %(self.logger_name, key))
+            super(TplDictC, self).__setitem__(key, sub_dict)
+            x = 1
+            # self[key] = TplDictC(self[key])
         self.logger.debug("Init. done")
 
     def __setitem__(self, key, value):
@@ -34,13 +44,27 @@ class TplDictC (dict):
         :return:
         """
         if self.check_tuple(key, value):
-            super(TplDictC, self).__setitem__(key, value)
-            try:
-                # Removed object from list
-                self.default_key_set.remove(key)
-            except ValueError:
-                # If element is not present it means that has already been updated
-                self.logger.warning("Value of key %s is super-seeded" % key)
+            if isinstance(value, dict):
+                if self.is_default:
+                    # We need to create instance
+                    sub_dict = self[TplDictC.__default_key__].copy()
+                    super(TplDictC, self).__setitem__(key, sub_dict)
+                    # self[key] = self[TplDictC.__default_key__]
+                try:
+                    self[key].update(value)
+                except KeyError:
+                    x = 1
+                x = 1
+                #super(TplDictC, self).__setitem__(key, TplDictC(value))
+            else:
+                super(TplDictC, self).__setitem__(key, value)
+            if not self.is_default:
+                try:
+                    # Removed object from list
+                    self.default_key_set.remove(key)
+                except ValueError:
+                    # If element is not present it means that has already been updated
+                    self.logger.warning("Value of key %s is super-seeded" % key)
 
     def __iter__(self):
         return iter(self.get_keys)
@@ -103,11 +127,13 @@ class TplDictC (dict):
         :return: True if valid
         """
         # Check in standard keys
+        self.is_default = False
         if key in self.get_keys:
             ref_type = self.type_dict[key]
         elif self.has_default_type:
             # Otherwise use default type if defined
             ref_type = self.type_dict[TplDictC.__default_key__]
+            self.is_default = True  # Set the flag is_default to for dict update
         else:
             # Error out
             self.logger.error("Invalid key %s" % key)
