@@ -18,7 +18,7 @@ class TplDictC (dict):
         super(TplDictC, self).__init__(*args, **kwargs)
         self.hidden_key_l = [TplDictC.__default_key__]
         # Create a sub-dictionary containing type-keys
-        self.type_dict = {key: type(value) for (key, value) in super(TplDictC,self).items()}
+        self.type_dict = {key: type(value) for (key, value) in super(TplDictC, self).items()}
         # Initialize the set of keys that have default values
         self.default_key_set = self.get_keys
         self.has_default_type = self.get(TplDictC.__default_key__) is not None
@@ -39,7 +39,7 @@ class TplDictC (dict):
                 # Removed object from list
                 self.default_key_set.remove(key)
             except ValueError:
-                # If element is not present it means that has laready been update
+                # If element is not present it means that has already been updated
                 self.logger.warning("Value of key %s is super-seeded" % key)
 
     def __iter__(self):
@@ -104,22 +104,17 @@ class TplDictC (dict):
         """
         # Check in standard keys
         if key in self.get_keys:
-            # ref_value = self[key]
             ref_type = self.type_dict[key]
         elif self.has_default_type:
             # Otherwise use default type if defined
             ref_type = self.type_dict[TplDictC.__default_key__]
-            # ref_value = self[TplDictC.__default_key__]
         else:
             # Error out
             self.logger.error("Invalid key %s" % key)
             return False
         # Now check if type matches
         if type(value) is not ref_type:
-        #if type(value) is not type(ref_value):
-            self.logger.error("Invalid type %s for key %s: expected %s" %
-#                              (type(value), key, type(ref_value)))
-                                 (type(value), key, ref_type))
+            self.logger.error("Invalid type %s for key %s: expected %s" % (type(value), key, ref_type))
             return False
         else:
             return True
@@ -129,4 +124,4 @@ class TplDictC (dict):
         Over-rise default representation omitting hidden keys
         :return:
         """
-        return { x: self[x] for x in self.get_keys}.__repr__()
+        return {x: self[x] for x in self.get_keys}.__repr__()
