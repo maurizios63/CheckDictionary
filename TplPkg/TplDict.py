@@ -17,6 +17,8 @@ class TplDictC (dict):
         self.logger.setLevel(TplDictC.__logging_level)
         super(TplDictC, self).__init__(*args, **kwargs)
         self.hidden_key_l = [TplDictC.__default_key__]
+        # Create a sub-dictionary containing type-keys
+        self.type_dict = {key: type(value) for (key, value) in super(TplDictC,self).items()}
         # Initialize the set of keys that have default values
         self.default_key_set = self.get_keys
         self.has_default_type = self.get(TplDictC.__default_key__) is not None
@@ -38,7 +40,7 @@ class TplDictC (dict):
                 self.default_key_set.remove(key)
             except ValueError:
                 # If element is not present it means that has laready been update
-                self.logger.warn("Value of key %s is super-seeded" % key)
+                self.logger.warning("Value of key %s is super-seeded" % key)
 
     def __iter__(self):
         return iter(self.get_keys)
@@ -81,7 +83,7 @@ class TplDictC (dict):
         new_dict.update(kwargs)  # Update dictionary with positional arguments
         for (key, value) in new_dict.items():
             # Check for invalid keys
-            self.__setitem__(key,value)
+            self.__setitem__(key, value)
             # super(TplDictC, self).__setitem__(key, value)
         self.logger.debug("Update done")
 
@@ -102,18 +104,22 @@ class TplDictC (dict):
         """
         # Check in standard keys
         if key in self.get_keys:
-            ref_value = self[key]
+            # ref_value = self[key]
+            ref_type = self.type_dict[key]
         elif self.has_default_type:
             # Otherwise use default type if defined
-            ref_value = self[TplDictC.__default_key__]
+            ref_type = self.type_dict[TplDictC.__default_key__]
+            # ref_value = self[TplDictC.__default_key__]
         else:
             # Error out
             self.logger.error("Invalid key %s" % key)
             return False
         # Now check if type matches
-        if type(value) is not type(ref_value):
+        if type(value) is not ref_type:
+        #if type(value) is not type(ref_value):
             self.logger.error("Invalid type %s for key %s: expected %s" %
-                              (type(value), key, type(ref_value)))
+#                              (type(value), key, type(ref_value)))
+                                 (type(value), key, ref_type))
             return False
         else:
             return True

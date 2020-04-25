@@ -33,7 +33,7 @@ logging.info("----------")
 my_dict_obj['a']=20
 logging.info(my_dict_obj)
 logging.info("----------")
-my_dict_obj['a']=20.5
+my_dict_obj['a']='20.5'
 logging.info(my_dict_obj)
 
 
