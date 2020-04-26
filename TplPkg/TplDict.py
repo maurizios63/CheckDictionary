@@ -25,8 +25,10 @@ class TplDictC (dict):
         self.default_key_set = self.get_keys
         self.has_default_type = self.get(TplDictC.__default_key__) is not None
         # Massage the dictionary and change all entries of type dict with type TplDict
-        dict_key_l = [key for key in super(TplDictC, self).keys()
-                     if isinstance(self[key], dict)]
+        # Leave behind __default since if it is a dictionary we should use it to create a TpcDict
+        #  at the time we had an objectz
+        # dict_key_l = [key for key in super(TplDictC, self).keys() if isinstance(self[key], dict)]
+        dict_key_l = [key for key in self.get_keys if isinstance(self[key], dict)]
         for key in dict_key_l:
             sub_dict = TplDictC(self[key], __name__="%s -> sub-key %s" %(self.logger_name, key))
             super(TplDictC, self).__setitem__(key, sub_dict)
@@ -47,7 +49,7 @@ class TplDictC (dict):
             if isinstance(value, dict):
                 if self.is_default:
                     # We need to create instance
-                    sub_dict = self[TplDictC.__default_key__].copy()
+                    sub_dict = TplDictC(self[TplDictC.__default_key__],__name__="%s -> sub-key %s" %(self.logger_name, key))
                     super(TplDictC, self).__setitem__(key, sub_dict)
                     # self[key] = self[TplDictC.__default_key__]
                 try:
@@ -136,11 +138,11 @@ class TplDictC (dict):
             self.is_default = True  # Set the flag is_default to for dict update
         else:
             # Error out
-            self.logger.error("Invalid key %s" % key)
+            self.logger.error("Invalid key >%s<" % key)
             return False
         # Now check if type matches
         if type(value) is not ref_type:
-            self.logger.error("Invalid type %s for key %s: expected %s" % (type(value), key, ref_type))
+            self.logger.error("Invalid type %s for key >%s<: expected %s" % (type(value), key, ref_type))
             return False
         else:
             return True
