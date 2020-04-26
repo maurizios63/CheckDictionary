@@ -14,7 +14,7 @@ class TplDictC (dict):
         :param init_dict: Initialization dictionary to define types
         """
         self.is_default = False
-        self.logger_name = kwargs.get('__name__','Main ')
+        self.logger_name = kwargs.get('__name__', 'Main ')
         self.logger = logging.getLogger(self.logger_name)
         self.logger.setLevel(TplDictC.__logging_level)
         super(TplDictC, self).__init__(*args, **kwargs)
@@ -30,10 +30,9 @@ class TplDictC (dict):
         # dict_key_l = [key for key in super(TplDictC, self).keys() if isinstance(self[key], dict)]
         dict_key_l = [key for key in self.get_keys if isinstance(self[key], dict)]
         for key in dict_key_l:
-            sub_dict = TplDictC(self[key], __name__="%s -> sub-key %s" %(self.logger_name, key))
+            sub_dict = TplDictC(self[key], __name__="%s -> sub-key %s" % (self.logger_name, key))
             super(TplDictC, self).__setitem__(key, sub_dict)
-            x = 1
-            # self[key] = TplDictC(self[key])
+
         self.logger.debug("Init. done")
 
     def __setitem__(self, key, value):
@@ -49,15 +48,11 @@ class TplDictC (dict):
             if isinstance(value, dict):
                 if self.is_default:
                     # We need to create instance
-                    sub_dict = TplDictC(self[TplDictC.__default_key__],__name__="%s -> sub-key %s" %(self.logger_name, key))
+                    sub_dict = TplDictC(self[TplDictC.__default_key__],
+                                        __name__="%s -> sub-key %s" % (self.logger_name, key))
                     super(TplDictC, self).__setitem__(key, sub_dict)
-                    # self[key] = self[TplDictC.__default_key__]
-                try:
-                    self[key].update(value)
-                except KeyError:
-                    x = 1
-                x = 1
-                #super(TplDictC, self).__setitem__(key, TplDictC(value))
+                self[key].update(value)
+
             else:
                 super(TplDictC, self).__setitem__(key, value)
             if not self.is_default:
