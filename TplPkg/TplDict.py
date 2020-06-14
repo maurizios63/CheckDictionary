@@ -1,39 +1,74 @@
 import logging
+# import sys
+import re
+
+from collections import OrderedDict
 
 
-class TplDictC (dict):
+class TplDictC (OrderedDict):
 
     # Name of default key
-    __default_key__ = '__default__'
-    __logging_level = logging.INFO
+    _log_name = 'TplDictC'
+    _ERROR = 2
+    _WARNING = 1
+    _OK = 0
+    _status = _OK
 
-    def __init__(self, *args, **kwargs):
+    _logging_level = logging.INFO
+    _ref_dict = {}  # Reference dictionary: initially empty
+    _mandatory_keys = []  # List of mandatory keys : initially empty
+
+    def __init__(self, tgt_dict, ref_dict, logger_name="TplDictC" ):
         """
         Init method
-        set type for each entry
-        :param init_dict: Initialization dictionary to define types
-        """
-        self.is_default = False
-        self.logger_name = kwargs.get('__name__', 'Main ')
-        self.logger = logging.getLogger(self.logger_name)
-        self.logger.setLevel(TplDictC.__logging_level)
-        super(TplDictC, self).__init__(*args, **kwargs)
-        self.hidden_key_l = [TplDictC.__default_key__, '__name__']
-        # Create a sub-dictionary containing type-keys
-        self.type_dict = {key: type(value) for (key, value) in super(TplDictC, self).items()}
-        # Initialize the set of keys that have default values
-        self.default_key_set = self.get_keys
-        self.has_default_type = self.get(TplDictC.__default_key__) is not None
-        # Massage the dictionary and change all entries of type dict with type TplDict
-        # Leave behind __default since if it is a dictionary we should use it to create a TpcDict
-        #  at the time we had an objectz
-        # dict_key_l = [key for key in super(TplDictC, self).keys() if isinstance(self[key], dict)]
-        dict_key_l = [key for key in self.get_keys if isinstance(self[key], dict)]
-        for key in dict_key_l:
-            sub_dict = TplDictC(self[key], __name__="%s -> sub-key %s" % (self.logger_name, key))
-            super(TplDictC, self).__setitem__(key, sub_dict)
 
-        self.logger.debug("Init. done")
+        """
+        # Set logger
+        self.logger = logging.getLogger(logger_name)
+        self.logger.setLevel(TplDictC._logging_level)
+        # Check if _ref_dict key has been specified
+        self._ref_dict = ref_dict
+        self._tgt_dict = { }
+        for key, value in tgt_dict.items():
+            ref_key = self.check_tuple(key, value)
+            if ref_key is not None:
+                if isinstance(value, dict):
+                    self._tgt_dict[key] = TplDictC(tgt_dict=self._tgt_dict[key], ref_dict=value)
+                else:
+                    self._tgt_dict[key] = value
+
+    def check_tuple(self, key, value):
+        """
+        Verify if key, value tuple is valid
+        :param key:
+        :param value:
+        :return: reference key if found, None otherwise
+        """
+        # Check in standard keys
+        ref_key = self.get_ref_key(key)
+        if ref_key is not None:
+            ref_type = type(self._ref_dict[ref_key])
+            # Now check if type matches
+            if type(value) is not ref_type:
+                self.logger.error("Invalid type %s for key >%s<: expected %s" % (type(value), key, ref_type))
+                self._status = TplDictC._ERROR
+                return None
+            else:
+                return ref_key
+
+    def get_ref_key(self, key):
+        """
+        Return key from reference dictionary
+        :param key: Key in actual dictionary
+        :return: key in reference dictionary (maybe a regex), None if not found
+        """
+        try:
+            # The dictionary is ordered so we pick the 1st matching
+            return [ref_key for ref_key in self._ref_dict.keys() if re.findall(ref_key, key)][0]
+        except IndexError:
+            self.logger.error("Invalid key : %s" % key)
+            self._status = TplDictC._ERROR
+            return None
 
     def __setitem__(self, key, value):
         """
@@ -55,13 +90,6 @@ class TplDictC (dict):
 
             else:
                 super(TplDictC, self).__setitem__(key, value)
-            if not self.is_default:
-                try:
-                    # Removed object from list
-                    self.default_key_set.remove(key)
-                except ValueError:
-                    # If element is not present it means that has already been updated
-                    self.logger.warning("Value of key %s is super-seeded" % key)
 
     def __iter__(self):
         return iter(self.get_keys)
@@ -114,37 +142,30 @@ class TplDictC (dict):
         Procedure to return keys except the hidden ones
         :return:
         """
-        return [key for key in super(TplDictC, self).keys() if key not in self.hidden_key_l]
-
-    def check_tuple(self, key, value):
-        """
-        Verify if key, value tuple is valid
-        :param key:
-        :param value:
-        :return: True if valid
-        """
-        # Check in standard keys
-        self.is_default = False
-        if key in self.get_keys:
-            ref_type = self.type_dict[key]
-        elif self.has_default_type:
-            # Otherwise use default type if defined
-            ref_type = self.type_dict[TplDictC.__default_key__]
-            self.is_default = True  # Set the flag is_default to for dict update
-        else:
-            # Error out
-            self.logger.error("Invalid key >%s<" % key)
-            return False
-        # Now check if type matches
-        if type(value) is not ref_type:
-            self.logger.error("Invalid type %s for key >%s<: expected %s" % (type(value), key, ref_type))
-            return False
-        else:
-            return True
+        return [key for key in super(TplDictC, self).keys() if not key.startswith('_')]
 
     def __repr__(self):
         """
         Over-rise default representation omitting hidden keys
         :return:
         """
-        return {x: self[x] for x in self.get_keys}.__repr__()
+        # return {x: self[x] for x in self.get_keys}.__repr__()
+        return self._tgt_dict.__repr__()
+
+    @property
+    def get_status(self):
+        """
+        Return test status
+        :return: int
+        """
+        self.logger.debug("Test status is %d" % self._status)
+        return self._status
+
+    def get(self, key, value=None):
+        """
+        Over-riding dictionary get method
+        :param key: key to be got
+        :param value: defualt value to be returned if key is missing
+        :return: corresponding key of internal target dictionary
+        """
+        return self._tgt_dict.get(key, value)
